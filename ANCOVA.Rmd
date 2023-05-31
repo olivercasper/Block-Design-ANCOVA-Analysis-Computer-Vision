@@ -1,0 +1,129 @@
+---
+title: "QAC 307 Project"
+output:
+  html_document: default
+  word_document: default
+date: "2022-10-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(ggplot2)
+require(gmodels)
+
+```
+
+
+
+```{r}
+
+## Inoculation Order
+treatments <- c("UV_high","UV_low","Control")
+
+df_order <- data.frame(plate=c(1:18),
+                       treatment=c(replicate(6, sample(
+                         treatments,3,replace=FALSE)))
+                            )
+df_order
+
+## Treatment counts
+table(df_order$treatment)
+
+## Inoculation order
+list(df_order$treatment)
+```
+
+"UV_high" "UV_low"  "Control" "Control" "UV_high" "UV_low"  "UV_low"  "UV_high" "Control" "UV_low"  "UV_high" "Control" "Control" "UV_low"  "UV_high" "UV_high" "UV_low"  "Control"
+
+```{r}
+#Data
+df <- data.frame(plate=c(1:18),
+                 treatment=c("UV_high", "UV_low",  "Control", "Control", "UV_high", "UV_low",  
+                             "UV_low",  "UV_high", "Control", "UV_low", "UV_high", "Control", 
+                             "Control", "UV_low",  "UV_high", "UV_high", "UV_low",  "Control"),
+                 block=rep(c(1:6), each=3), 
+                 row_pos=c(2,1,0,0,2,1,2,1,0,2,1,0,0,3,3,3,3,0), 
+                 col_pos=c(1,1,0,0,2,2,1,1,0,2,2,0,0,1,1,2,2,0),
+                 area=c(5072,13098,20247,16500,6695,16438,
+                        23926,11473,35428,17890,10758,33088,
+                        25549,20358, 21955,48781,66536,30833)
+                 )
+df$log_area <- log(df$area)
+
+#Light sources placed 22 and 11 cm
+D_h = "22cm"
+D_l = "11cm"
+
+#UV light applied to treatment plates for 45 seconds  
+```
+
+
+```{r}
+##Analysis
+tapply(log(df$area), df$treatment, mean)
+
+#ANOVA
+mod <- aov(log(area)~treatment + factor(block) + factor(row_pos) + factor(col_pos), data=df)
+summary(mod)
+TukeyHSD(mod)
+
+
+```
+
+
+```{r}
+## Plots
+plot(mod)
+
+ggplot(data=df)+
+  geom_boxplot(aes(x=factor(treatment), y=log(area))) +
+  ggtitle("Growth by Treatment") +
+  xlab("Treatment")
+
+ggplot(data=df)+
+    stat_summary(aes(x=treatment, y=log(area)), fun=mean, geom="bar") +
+    ggtitle("Growth by Treatment") +
+    xlab("Treatment")
+
+ggplot(data=df)+
+  geom_boxplot(aes(x=factor(block), y=log(area))) +
+  ggtitle("Growth by Inoculation Block") +
+  xlab("Inoculation Group")
+
+ggplot(data=df)+
+  geom_boxplot(aes(x=factor(row_pos, labels=c("None (Control)", "Top", "Middle", "Lower")), y=log(area))) +
+  ggtitle("Growth by Row Positition") +
+  xlab("Row")
+```
+
+
+```{r}
+##Sample size calculations
+
+#All treatments vary
+
+#Growth
+gm <- mean(df$log_area)
+
+tau_uv <- tapply(df$log_area, INDEX=df$treatment, FUN=mean) - gm
+ms_res = 0.07
+diff <- min(abs(apply(combn(c(tau_uv),2), 2, diff)))
+delta <- (diff)/sqrt(ms_res)
+
+n <- ceiling(2*(qnorm(1-0.025) + qnorm(0.8))^2/(delta)^2)
+
+N <- n*3
+
+print(n)
+print(N)
+```
+
+```{r}
+write.csv(df, "C:\\Users\\olive\\Desktop\\results.csv", row.names=TRUE)
+
+
+```
+
